@@ -165,6 +165,32 @@
    [:currency currency]
    [:mp-payment-id [:maybe :string]]
    [:reason [:string {:min 1 :max 120}]]])
+(def payment-refunded-event
+  [:map {:closed true}
+   [:event-id entity-id]
+   [:event-type [:= "PaymentRefundedEvent"]]
+   [:occurred-at instant-string]
+   [:transaction-id entity-id]
+   [:task-id entity-id]
+   [:payer-id entity-id]
+   [:amount amount]
+   [:currency currency]
+   [:mp-payment-id [:maybe :string]]
+   [:reason [:string {:min 1 :max 500}]]])
+
+(def fraud-alert-detected-event
+  [:map {:closed false}
+   [:event_id non-blank]
+   [:event_type [:= "FraudAlertDetectedEvent"]]
+   [:occurred_at non-blank]
+   [:recommended_action [:enum "UNDER_REVIEW" "ALERT_ADMIN"]]
+   [:analysis
+    [:map {:closed false}
+     [:is_anomaly :boolean]
+     [:risk_level non-blank]
+     [:task_id {:optional true} [:maybe :string]]
+     [:sender_id {:optional true} [:maybe :string]]
+     [:reason {:optional true} [:maybe :string]]]]])
 
 (def transaction-history-query
   [:map {:closed true}

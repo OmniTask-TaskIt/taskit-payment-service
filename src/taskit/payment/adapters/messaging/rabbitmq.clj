@@ -12,7 +12,7 @@
             [taskit.payment.ports.outbound :as out]))
 
 (defn- declare-topology!
-  [channel {:keys [exchange dead-letter queue task-routing-key dispute-routing-key]}]
+  [channel {:keys [exchange dead-letter queue task-routing-key dispute-routing-key security-routing-key]}]
   (le/declare channel exchange "topic" {:durable true})
   (le/declare channel dead-letter "topic" {:durable true})
   (lq/declare channel (str queue ".dlq") {:durable true})
@@ -21,7 +21,8 @@
               {:durable true
                :arguments {"x-dead-letter-exchange" dead-letter}})
   (lq/bind channel queue exchange {:routing-key task-routing-key})
-  (lq/bind channel queue exchange {:routing-key dispute-routing-key}))
+  (lq/bind channel queue exchange {:routing-key dispute-routing-key})
+  (lq/bind channel queue exchange {:routing-key (or security-routing-key "taskit.security.events")}))
 
 (defn- permanent-domain-error?
   [throwable]
@@ -92,3 +93,4 @@
   (when-let [connection (:connection publisher)]
     (when-not (rmq/closed? connection)
       (rmq/close connection))))
+

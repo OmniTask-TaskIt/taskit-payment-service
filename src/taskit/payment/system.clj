@@ -78,11 +78,13 @@
                   :queue (:rabbitmq-queue cfg)
                   :routing-key (:rabbitmq-routing-key cfg)
                   :task-routing-key (:rabbitmq-task-routing-key cfg)
-                  :dispute-routing-key (:rabbitmq-dispute-routing-key cfg)}
+                  :dispute-routing-key (:rabbitmq-dispute-routing-key cfg)
+                  :security-routing-key (:rabbitmq-security-routing-key cfg)}
      ::usecases {:repo (ig/ref ::store)
                  :tx-manager (ig/ref ::store)
                  :snapshots (ig/ref ::snapshots)
                  :idempotency (ig/ref ::redis)
+                 :fraud-freeze (ig/ref ::redis)
                  :gateway (ig/ref ::gateway)
                  :publisher (ig/ref ::publisher)}
      ::listener {:broker (ig/ref ::publisher)

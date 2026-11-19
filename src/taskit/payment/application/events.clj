@@ -20,11 +20,24 @@
     (when (= :release-escrow (:effect (logic/on-task-status-changed event)))
       (release/release-escrow-funds deps {:task-id (:task-id task) :task task}))))
 
+(defn on-fraud-alert-detected
+  [deps event]
+  (let [decision (logic/interpret-fraud-alert event)]
+    (when (= :rejected (:status decision))
+      (support/throw-rejected! decision))
+    (when (= :freeze (:status decision))
+      (when-let [ff (:fraud-freeze deps)]
+        (out/freeze-task! ff (:task-id decision) (:reason decision))))
+    decision))
+
 (defn dispatch!
   [deps event]
   (cond
     (contains? event :outcome)
     (dispute/process-hitl-dispute deps event)
+
+    (= "FraudAlertDetectedEvent" (or (:event_type event) (:event-type event)))
+    (on-fraud-alert-detected deps event)
 
     (contains? event :task-status)
     (on-task-status-changed deps event)

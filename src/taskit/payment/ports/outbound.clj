@@ -42,3 +42,8 @@
   (publish! [this event]
     "Publica PaymentAuthorizedEvent, FundsReleasedEvent o PaymentFailedEvent.
     Devuelve :sent o :skipped."))
+
+(defprotocol FraudFreezePort
+  (freeze-task! [this task-id reason])
+  (frozen-task [this task-id])
+  (unfreeze-task! [this task-id]))

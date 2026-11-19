@@ -12,3 +12,4 @@
  :mp-access-token #or [#env MP_ACCESS_TOKEN #prop MP_ACCESS_TOKEN ""]
  :mp-base-url #or [#env MP_BASE_URL #prop MP_BASE_URL "https://api.mercadopago.com"]
  :mp-notification-url #or [#env MP_NOTIFICATION_URL #prop MP_NOTIFICATION_URL ""]}
+ :rabbitmq-security-routing-key #or [#env RABBITMQ_SECURITY_ROUTING_KEY "taskit.security.events"]

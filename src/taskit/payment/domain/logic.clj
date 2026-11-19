@@ -227,6 +227,10 @@
   [base]
   (invariant! model/funds-released-event
               (assoc base :event-type "FundsReleasedEvent")))
+(defn- refunded-event
+  [base]
+  (invariant! model/payment-refunded-event
+              (assoc base :event-type "PaymentRefundedEvent")))
 
 (defn- touch
   [transaction status now extra]
@@ -342,8 +346,8 @@
                     {:status status :gateway-status (:status payment)}))))))
 
 (defn interpret-release
-  "COMPLETED + RETAINED libera fondos al prestador. Un RELEASED repetido no republica."
-  [{:keys [task transaction now event-id]}]
+  "COMPLETED + RETAINED libera fondos al prestador si no hay bloqueo por fraude."
+  [{:keys [task transaction frozen-reason now event-id]}]
   (or (schema-error model/task task)
       (when-not transaction
         (reject errors/transaction-not-found
@@ -365,6 +369,11 @@
 
         (= "RELEASED" (:status transaction))
         {:status :ignored :reason :already-released :transaction transaction}
+
+        (some? frozen-reason)
+        (reject errors/invalid-transition
+                "Fondos congelados por alerta critica de fraude (AITA). Requiere revision de administrador."
+                {:task-id (:task-id task) :reason frozen-reason})
 
         (= "RETAINED" (:status transaction))
         (if-not (:mp-payment-id transaction)
@@ -434,10 +443,20 @@
                     {:status status :outcome outcome})
 
             (= outcome "REFUND_PAYER")
-            {:status :applied
-             :action :refund
-             :transaction (touch transaction "REFUNDED" now {})
-             :event nil}
+            (let [tx (touch transaction "REFUNDED" now {})]
+              {:status :applied
+               :action :refund
+               :transaction tx
+               :event (refunded-event
+                       {:event-id event-id
+                        :occurred-at now
+                        :transaction-id (:transaction-id tx)
+                        :task-id (:task-id tx)
+                        :payer-id (:payer-id tx)
+                        :amount (:amount tx)
+                        :currency (:currency tx)
+                        :mp-payment-id (:mp-payment-id tx)
+                        :reason (:reason resolution)})})
 
             (= outcome "RELEASE_PAYEE")
             (if-not (:mp-payment-id transaction)
@@ -495,3 +514,24 @@
       {:mp-payment-id (str raw-id)
        :topic "payment"
        :action (some-> (or (:action payload) (get payload "action")) str)})))
+
+(defn interpret-fraud-alert
+  "Solo congela escrow si AITA recomienda ALERT_ADMIN sobre una tarea con UUID válido."
+  [event]
+  (or (schema-error model/fraud-alert-detected-event event)
+      (let [action (:recommended_action event)
+            task-id (get-in event [:analysis :task_id])
+            reason (or (get-in event [:analysis :reason])
+                       "Alerta de fraude detectada por AITA")]
+        (cond
+          (not= "ALERT_ADMIN" action)
+          {:status :ignored :reason :not-critical}
+
+          (or (nil? task-id) (not (model/valid? model/entity-id task-id)))
+          {:status :ignored :reason :missing-or-invalid-task-id}
+
+          :else
+          {:status :freeze
+           :task-id task-id
+           :risk-level (get-in event [:analysis :risk_level])
+           :reason reason}))))
